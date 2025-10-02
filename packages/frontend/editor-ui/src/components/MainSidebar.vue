@@ -4,7 +4,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { onClickOutside, type VueInstance } from '@vueuse/core';
 
 import { useI18n } from '@n8n/i18n';
-import { N8nNavigationDropdown, N8nTooltip, N8nLink, N8nIconButton } from '@n8n/design-system';
+import {
+	N8nNavigationDropdown,
+	N8nTooltip,
+	N8nLink,
+	N8nIconButton,
+	N8nActionDropdown,
+} from '@n8n/design-system';
 import type { IMenuItem } from '@n8n/design-system';
 import {
 	ABOUT_MODAL_KEY,
@@ -13,6 +19,7 @@ import {
 	RELEASE_NOTES_URL,
 	VIEWS,
 	WHATS_NEW_MODAL_KEY,
+	MODAL_CONFIRM,
 } from '@/constants';
 import { hasPermission } from '@/utils/rbac/permissions';
 import { useCloudPlanStore } from '@/stores/cloudPlan.store';
@@ -41,6 +48,8 @@ import { usePersonalizedTemplatesV3Store } from '@/experiments/personalizedTempl
 import TemplateTooltip from '@/experiments/personalizedTemplatesV3/components/TemplateTooltip.vue';
 import { useKeybindings } from '@/composables/useKeybindings';
 import { useCalloutHelpers } from '@/composables/useCalloutHelpers';
+import { useToast } from '@/composables/useToast';
+import { useMessage } from '@/composables/useMessage';
 
 const becomeTemplateCreatorStore = useBecomeTemplateCreatorStore();
 const cloudPlanStore = useCloudPlanStore();
@@ -64,6 +73,8 @@ const telemetry = useTelemetry();
 const pageRedirectionHelper = usePageRedirectionHelper();
 const { getReportingURL } = useBugReporting();
 const calloutHelpers = useCalloutHelpers();
+const message = useMessage();
+const toast = useToast();
 
 useKeybindings({
 	ctrl_alt_o: () => handleSelect('about'),
@@ -72,20 +83,33 @@ useUserHelpers(router, route);
 
 // Template refs
 const user = ref<Element | null>(null);
+const userActionDropdown = ref();
 
 // Component data
 const basePath = ref('');
 const fullyExpanded = ref(false);
-const userMenuItems = ref([
-	{
-		id: 'settings',
-		label: i18n.baseText('settings'),
-	},
-	{
-		id: 'logout',
-		label: i18n.baseText('auth.signout'),
-	},
-]);
+
+// Make userMenuItems computed so the icon updates reactively
+const userMenuItems = computed(() => {
+	const themeIcon = uiStore.appliedTheme === 'dark' ? ('contrast' as const) : ('sun' as const);
+	return [
+		{
+			id: 'settings',
+			label: i18n.baseText('settings'),
+			icon: 'cog' as const,
+		},
+		{
+			id: 'theme',
+			label: i18n.baseText('settings.personal.theme'),
+			icon: themeIcon,
+		},
+		{
+			id: 'logout',
+			label: i18n.baseText('auth.signout'),
+			divided: true,
+		},
+	];
+});
 
 const showWhatsNewNotification = computed(
 	() =>
@@ -318,14 +342,62 @@ const trackHelpItemClick = (itemType: string) => {
 	});
 };
 
-const onUserActionToggle = (action: string) => {
+const onUserActionToggle = async (action: string) => {
 	switch (action) {
-		case 'logout':
-			onLogout();
+		case 'logout': {
+			const confirmed = await message.confirm(
+				i18n.baseText('auth.signout.confirmMessage'),
+				i18n.baseText('auth.signout.confirmTitle'),
+				{
+					type: 'warning',
+					confirmButtonText: i18n.baseText('auth.signout'),
+					cancelButtonText: i18n.baseText('generic.cancel'),
+				},
+			);
+
+			if (confirmed === MODAL_CONFIRM) {
+				onLogout();
+			} else {
+				setTimeout(() => {
+					userActionDropdown.value?.open();
+				}, 100);
+			}
 			break;
+		}
 		case 'settings':
 			void router.push({ name: VIEWS.SETTINGS });
 			break;
+		case 'theme': {
+			// Cycle through: light -> dark -> system -> light
+			let newTheme: 'light' | 'dark' | 'system';
+			let themeName: string;
+
+			if (uiStore.theme === 'light') {
+				newTheme = 'dark';
+				themeName = i18n.baseText('settings.personal.theme.dark');
+			} else if (uiStore.theme === 'dark') {
+				newTheme = 'system';
+				themeName = i18n.baseText('settings.personal.theme.systemDefault');
+			} else {
+				newTheme = 'light';
+				themeName = i18n.baseText('settings.personal.theme.light');
+			}
+
+			uiStore.setTheme(newTheme);
+
+			toast.showToast({
+				title: i18n.baseText('settings.personal.theme'),
+				message: themeName,
+				type: 'info',
+				duration: 2000,
+			});
+
+			// Keep the menu open by re-opening it after a short delay
+			setTimeout(() => {
+				userActionDropdown.value?.open();
+			}, 100);
+			break;
+		}
 		default:
 			break;
 	}
@@ -588,6 +660,7 @@ onClickOutside(createBtn as Ref<VueInstance>, () => {
 					</div>
 					<div :class="{ [$style.userActions]: true, [$style.expanded]: fullyExpanded }">
 						<N8nActionDropdown
+							ref="userActionDropdown"
 							:items="userMenuItems"
 							placement="top-start"
 							data-test-id="user-menu"

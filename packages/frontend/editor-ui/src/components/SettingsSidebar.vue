@@ -6,7 +6,7 @@ import type { IMenuItem } from '@n8n/design-system';
 import { useUIStore } from '@/stores/ui.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useRootStore } from '@n8n/stores/useRootStore';
-import { hasPermission } from '@/utils/rbac/permissions';
+// import { hasPermission } from '@/utils/rbac/permissions';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from '@n8n/i18n';
 
@@ -58,59 +58,58 @@ const sidebarMenuItems = computed<IMenuItem[]>(() => {
 			available: settingsStore.isPublicApiEnabled && canUserAccessRouteByName(VIEWS.API_SETTINGS),
 			route: { to: { name: VIEWS.API_SETTINGS } },
 		},
-		{
-			id: 'settings-external-secrets',
-			icon: 'vault',
-			label: i18n.baseText('settings.externalSecrets.title'),
-			position: 'top',
-			available: canUserAccessRouteByName(VIEWS.EXTERNAL_SECRETS_SETTINGS),
-			route: { to: { name: VIEWS.EXTERNAL_SECRETS_SETTINGS } },
-		},
-
-		{
-			id: 'settings-source-control',
-			icon: 'git-branch',
-			label: i18n.baseText('settings.sourceControl.title'),
-			position: 'top',
-			available: canUserAccessRouteByName(VIEWS.SOURCE_CONTROL),
-			route: { to: { name: VIEWS.SOURCE_CONTROL } },
-		},
-		{
-			id: 'settings-sso',
-			icon: 'user-lock',
-			label: i18n.baseText('settings.sso'),
-			position: 'top',
-			available: canUserAccessRouteByName(VIEWS.SSO_SETTINGS),
-			route: { to: { name: VIEWS.SSO_SETTINGS } },
-		},
-		{
-			id: 'settings-ldap',
-			icon: 'network',
-			label: i18n.baseText('settings.ldap'),
-			position: 'top',
-			available: canUserAccessRouteByName(VIEWS.LDAP_SETTINGS),
-			route: { to: { name: VIEWS.LDAP_SETTINGS } },
-		},
-		{
-			id: 'settings-workersview',
-			icon: 'waypoints',
-			label: i18n.baseText('mainSidebar.workersView'),
-			position: 'top',
-			available:
-				settingsStore.isQueueModeEnabled &&
-				hasPermission(['rbac'], { rbac: { scope: 'workersView:manage' } }),
-			route: { to: { name: VIEWS.WORKER_VIEW } },
-		},
+		// {
+		// 	id: 'settings-external-secrets',
+		// 	icon: 'vault',
+		// 	label: i18n.baseText('settings.externalSecrets.title'),
+		// 	position: 'top',
+		// 	available: canUserAccessRouteByName(VIEWS.EXTERNAL_SECRETS_SETTINGS),
+		// 	route: { to: { name: VIEWS.EXTERNAL_SECRETS_SETTINGS } },
+		// },
+		// 	{
+		// 		id: 'settings-source-control',
+		// 		icon: 'git-branch',
+		// 		label: i18n.baseText('settings.sourceControl.title'),
+		// 		position: 'top',
+		// 		available: canUserAccessRouteByName(VIEWS.SOURCE_CONTROL),
+		// 		route: { to: { name: VIEWS.SOURCE_CONTROL } },
+		// 	},
+		// 	{
+		// 		id: 'settings-sso',
+		// 		icon: 'user-lock',
+		// 		label: i18n.baseText('settings.sso'),
+		// 		position: 'top',
+		// 		available: canUserAccessRouteByName(VIEWS.SSO_SETTINGS),
+		// 		route: { to: { name: VIEWS.SSO_SETTINGS } },
+		// 	},
+		// 	{
+		// 		id: 'settings-ldap',
+		// 		icon: 'network',
+		// 		label: i18n.baseText('settings.ldap'),
+		// 		position: 'top',
+		// 		available: canUserAccessRouteByName(VIEWS.LDAP_SETTINGS),
+		// 		route: { to: { name: VIEWS.LDAP_SETTINGS } },
+		// 	},
+		// 	{
+		// 		id: 'settings-workersview',
+		// 		icon: 'waypoints',
+		// 		label: i18n.baseText('mainSidebar.workersView'),
+		// 		position: 'top',
+		// 		available:
+		// 			settingsStore.isQueueModeEnabled &&
+		// 			hasPermission(['rbac'], { rbac: { scope: 'workersView:manage' } }),
+		// 		route: { to: { name: VIEWS.WORKER_VIEW } },
+		// 	},
 	];
 
-	menuItems.push({
-		id: 'settings-log-streaming',
-		icon: 'log-in',
-		label: i18n.baseText('settings.log-streaming'),
-		position: 'top',
-		available: canUserAccessRouteByName(VIEWS.LOG_STREAMING_SETTINGS),
-		route: { to: { name: VIEWS.LOG_STREAMING_SETTINGS } },
-	});
+	// menuItems.push({
+	// 	id: 'settings-log-streaming',
+	// 	icon: 'log-in',
+	// 	label: i18n.baseText('settings.log-streaming'),
+	// 	position: 'top',
+	// 	available: canUserAccessRouteByName(VIEWS.LOG_STREAMING_SETTINGS),
+	// 	route: { to: { name: VIEWS.LOG_STREAMING_SETTINGS } },
+	// });
 
 	menuItems.push({
 		id: 'settings-community-nodes',
