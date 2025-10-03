@@ -10,6 +10,7 @@
 
 import { $, echo, fs, chalk } from 'zx';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Check if running in a CI environment
 const isCI = process.env.CI === 'true';
@@ -22,9 +23,12 @@ const excludeTestController =
 $.verbose = !isCI;
 process.env.FORCE_COLOR = isCI ? '0' : '1';
 
-const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const isInScriptsDir = path.basename(scriptDir) === 'scripts';
 const rootDir = isInScriptsDir ? path.join(scriptDir, '..') : scriptDir;
+
+// Helper to convert Windows paths to forward slashes for bash
+const toUnixPath = (p) => p.replace(/\\/g, '/');
 
 // #region ===== Configuration =====
 const config = {
@@ -97,18 +101,18 @@ startTimer('package_build');
 
 echo(chalk.yellow('INFO: Running pnpm install and build...'));
 try {
-	const installProcess = $`cd ${config.rootDir} && pnpm install --frozen-lockfile`;
+	const installProcess = $`cd ${toUnixPath(config.rootDir)} && pnpm install --frozen-lockfile`;
 	installProcess.pipe(process.stdout);
 	await installProcess;
 
-	const buildProcess = $`cd ${config.rootDir} && pnpm build`;
+	const buildProcess = $`cd ${toUnixPath(config.rootDir)} && pnpm build`;
 	buildProcess.pipe(process.stdout);
 	await buildProcess;
 
 	// Generate third-party licenses for production build
 	echo(chalk.yellow('INFO: Generating third-party licenses...'));
 	try {
-		const licenseProcess = $`cd ${config.rootDir} && node scripts/generate-third-party-licenses.mjs`;
+		const licenseProcess = $`cd ${toUnixPath(config.rootDir)} && node scripts/generate-third-party-licenses.mjs`;
 		licenseProcess.pipe(process.stdout);
 		await licenseProcess;
 		echo(chalk.green('✅ Third-party licenses generated successfully'));
@@ -132,7 +136,7 @@ printDivider();
 echo(chalk.yellow('INFO: Performing pre-deploy cleanup on package.json files...'));
 
 // Find and backup package.json files
-const packageJsonFiles = await $`cd ${config.rootDir} && find . -name "package.json" \
+const packageJsonFiles = await $`cd ${toUnixPath(config.rootDir)} && find . -name "package.json" \
 -not -path "./node_modules/*" \
 -not -path "*/node_modules/*" \
 -not -path "./compiled/*" \
@@ -149,7 +153,7 @@ if (process.env.CI !== 'true') {
 	}
 }
 // Run FE trim script
-await $`cd ${config.rootDir} && node .github/scripts/trim-fe-packageJson.js`;
+await $`cd ${toUnixPath(config.rootDir)} && node .github/scripts/trim-fe-packageJson.js`;
 echo(chalk.yellow('INFO: Performing selective patch cleanup...'));
 
 const packageJsonPath = path.join(config.rootDir, 'package.json');
@@ -202,7 +206,7 @@ if (excludeTestController) {
 	echo(chalk.gray('  - Excluded test controller from packages/cli/package.json'));
 }
 
-await $`cd ${config.rootDir} && NODE_ENV=production DOCKER_BUILD=true pnpm --filter=n8n --prod --legacy deploy --no-optional ./compiled`;
+await $`cd ${toUnixPath(config.rootDir)} && NODE_ENV=production DOCKER_BUILD=true pnpm --filter=n8n --prod --legacy deploy --no-optional ./compiled`;
 await fs.ensureDir(config.compiledTaskRunnerDir);
 
 echo(
@@ -211,7 +215,7 @@ echo(
 	),
 );
 
-await $`cd ${config.rootDir} && NODE_ENV=production DOCKER_BUILD=true pnpm --filter=@n8n/task-runner --prod --legacy deploy --no-optional ${config.compiledTaskRunnerDir}`;
+await $`cd ${toUnixPath(config.rootDir)} && NODE_ENV=production DOCKER_BUILD=true pnpm --filter=@n8n/task-runner --prod --legacy deploy --no-optional ${toUnixPath(config.compiledTaskRunnerDir)}`;
 
 const packageDeployTime = getElapsedTime('package_deploy');
 
@@ -230,10 +234,42 @@ if (process.env.CI !== 'true') {
 }
 
 // Calculate output size
-const compiledAppOutputSize = (await $`du -sh ${config.compiledAppDir} | cut -f1`).stdout.trim();
-const compiledTaskRunnerOutputSize = (
-	await $`du -sh ${config.compiledTaskRunnerDir} | cut -f1`
-).stdout.trim();
+async function getDirSize(dirPath) {
+	let size = 0;
+	try {
+		async function calculateSize(dir) {
+			const entries = await fs.readdir(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				const fullPath = path.join(dir, entry.name);
+				if (entry.isDirectory()) {
+					await calculateSize(fullPath);
+				} else if (entry.isFile()) {
+					const stats = await fs.stat(fullPath);
+					size += stats.size;
+				}
+			}
+		}
+		await calculateSize(dirPath);
+
+		// Convert to human readable format
+		const units = ['B', 'K', 'M', 'G'];
+		let unitIndex = 0;
+		let readableSize = size;
+
+		while (readableSize >= 1024 && unitIndex < units.length - 1) {
+			readableSize /= 1024;
+			unitIndex++;
+		}
+
+		return `${readableSize.toFixed(1)}${units[unitIndex]}`;
+	} catch (error) {
+		return 'Unknown';
+	}
+}
+
+echo(chalk.yellow('INFO: Calculating output sizes...'));
+const compiledAppOutputSize = await getDirSize(config.compiledAppDir);
+const compiledTaskRunnerOutputSize = await getDirSize(config.compiledTaskRunnerDir);
 
 // Generate build manifests
 const buildManifest = {

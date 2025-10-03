@@ -72,7 +72,7 @@ async function commandExists(command) {
 	}
 }
 
-const SupportedContainerEngines = /** @type {const} */(['docker', 'podman'])
+const SupportedContainerEngines = /** @type {const} */ (['docker', 'podman']);
 /**
  * @returns {Promise<(typeof SupportedContainerEngines[number])>}
  */
@@ -83,6 +83,9 @@ async function getContainerEngine() {
 	// use docker by default
 	return 'docker';
 }
+
+// Helper to convert Windows paths to forward slashes for bash
+const toUnixPath = (p) => p.replace(/\\/g, '/');
 
 // #endregion ===== Helper Functions =====
 
@@ -153,8 +156,8 @@ async function buildDockerImage() {
 				--platform ${platform} \
 				--build-arg TARGETPLATFORM=${platform} \
 				-t ${config.fullImageName} \
-				-f ${config.dockerfilePath} \
-				${config.buildContext}`;
+				-f ${toUnixPath(config.dockerfilePath)} \
+				${toUnixPath(config.buildContext)}`;
 			echo(stdout);
 		} else {
 			// use docker command by default since most other engines have compatibility layers for it.
@@ -162,9 +165,9 @@ async function buildDockerImage() {
 				--platform ${platform} \
 				--build-arg TARGETPLATFORM=${platform} \
 				-t ${config.fullImageName} \
-				-f ${config.dockerfilePath} \
+				-f ${toUnixPath(config.dockerfilePath)} \
 				--load \
-				${config.buildContext}`;
+				${toUnixPath(config.buildContext)}`;
 			echo(stdout);
 		}
 
